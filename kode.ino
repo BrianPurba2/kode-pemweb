@@ -1,121 +1,118 @@
 <?php
 session_start();
-if (!isset($_SESSION['id_admin'])) {
-    header("Location: login_admin.php");
+if (!isset($_SESSION['id_user'])) {
+    header("Location: ../auth/login.php");
     exit;
 }
 include '../config/koneksi.php';
 
-$nama_tabel = 'pesanan';
-$cek_tabel = mysqli_query($conn, "SHOW TABLES LIKE 'transaksi'");
-if ($cek_tabel && mysqli_num_rows($cek_tabel) > 0) {
-    $nama_tabel = 'transaksi';
-}
+$nama_user = isset($_SESSION['nama']) ? $_SESSION['nama'] : 'Diva';
 
-if ($nama_tabel == 'transaksi') {
-    $query = "SELECT * FROM transaksi ORDER BY id_transaksi DESC";
-} else {
-    $query = "SELECT * FROM pesanan ORDER BY id_pesanan DESC";
+if (isset($_GET['hapus'])) {
+    $id_hapus = intval($_GET['hapus']);
+    unset($_SESSION['cart'][$id_hapus]);
+    header("Location: cart.php");
+    exit;
 }
-$result = mysqli_query($conn, $query);
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pesanan Admin - Stranger Merch Store</title>
+    <title>Keranjang Belanja - Stranger Merch Store</title>
     <link rel="stylesheet" href="https://cloudflare.com">
     <link href="https://googleapis.com" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
         body { background: #0a0202; color: #ffffff; min-height: 100vh; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 4%; background: #0a0202; border-bottom: 2px solid #E50914; position: sticky; top: 0; z-index: 100; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 6%; background: rgba(10, 2, 2, 0.95); border-bottom: 2px solid #E50914; position: sticky; top: 0; z-index: 100; }
         .navbar .logo { font-family: 'Cinzel Decorative', serif; color: #E50914; font-size: 1.3rem; text-decoration: none; font-weight: 700; }
         .nav-links { display: flex; list-style: none; gap: 25px; align-items: center; }
         .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.85rem; font-weight: 500; text-transform: uppercase; }
-        .nav-links a.active { color: #E50914; }
-        .main-layout { display: flex; padding: 25px 4%; gap: 25px; align-items: flex-start; }
-        .sidebar { width: 240px; background: rgba(10, 2, 2, 0.6); border: 1px solid rgba(229, 9, 20, 0.3); border-radius: 10px; padding: 20px; }
-        .user-profile { display: flex; align-items: center; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
-        .user-avatar { width: 45px; height: 45px; border-radius: 50%; background: #1a1a1a; border: 2px solid #E50914; object-fit: cover; }
-        .sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 4px; }
-        .sidebar-menu a { display: flex; align-items: center; gap: 12px; color: #bbb; text-decoration: none; padding: 10px 15px; font-size: 0.85rem; border-radius: 6px; }
-        .sidebar-menu li.active a { background: #E50914; color: white !important; font-weight: 500; }
-        .content-area { flex: 1; display: flex; flex-direction: column; gap: 20px; }
-        .table-box { background: rgba(15, 5, 5, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; overflow: hidden; padding: 12px; }
-        .order-table { width: 100%; border-collapse: collapse; text-align: left; }
-        .order-table th, .order-table td { padding: 12px 15px; font-size: 0.8rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .order-table th { background: rgba(229, 9, 20, 0.1); color: #E50914; font-weight: 600; text-transform: uppercase; }
-        .status-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; display: inline-block; }
-        .status-badge.selesai { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
-        .status-badge.menunggu { background: rgba(233, 30, 99, 0.15); color: #E91E63; }
-        .btn-edit-status { color: #fff; background: rgba(255,255,255,0.05); text-decoration: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
+        .nav-links a.active { color: #E50914; font-weight: 600; }
+        .cart-wrapper { display: grid; grid-template-columns: 1.2fr 1fr; gap: 35px; margin-top: 10px; padding: 40px 6%; }
+        .cart-section { border: 2px solid #E50914; border-radius: 12px; padding: 20px; background: rgba(10,2,2,0.6); }
+        .cart-item { display: flex; align-items: center; gap: 20px; padding: 15px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+        .item-details { flex: 1; }
+        .qty-control { display: flex; align-items: center; background: #110404; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden; width: max-content; }
+        .qty-btn { background: none; border: none; color: white; width: 28px; height: 28px; cursor: pointer; }
+        .qty-val { background: none; border: none; color: white; width: 35px; text-align: center; }
+        .btn-delete-link { color: #FF5722; font-size: 1.1rem; text-decoration: none; }
+        .summary-section { border: 2px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 25px; background: rgba(10,2,2,0.6); }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 0.85rem; }
+        .summary-input { width: 100%; padding: 10px; background: #110404; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: white; margin-top: 5px; }
+        .btn-checkout { display: block; width: 100%; padding: 12px; background: #E50914; color: white; text-align: center; text-decoration: none; font-weight: 700; border-radius: 6px; margin-top: 20px; }
     </style>
 </head>
 <body>
     <nav class="navbar">
-        <a href="admin.php" class="logo">STRANGER MERCH STORE</a>
+        <a href="home.php" class="logo">STRANGER MERCH STORE</a>
         <ul class="nav-links">
-            <li><a href="admin.php">HOME</a></li>
-            <li><a href="admin_kategori.php">PRODUK</a></li>
-            <li><a href="data_pesanan.php" class="active">RIWAYAT PESANAN</a></li>
+            <li><a href="home.php">HOME</a></li>
+            <li><a href="produk.php">PRODUK</a></li>
+            <li><a href="riwayat.php">RIWAYAT PESANAN</a></li>
+            <li><a href="cart.php" class="active"><i class="fa-solid fa-basket-shopping"></i></a></li>
         </ul>
     </nav>
-    <div class="main-layout">
-        <aside class="sidebar">
-            <div class="user-profile">
-                <img src="../assets/img/avatar_dustin.png" class="user-avatar" alt="">
-                <div><h4>Admin Hawkins</h4><p>Online</p></div>
+    <main class="cart-wrapper">
+        <div>
+            <h2 style="margin-bottom:20px;">Keranjang Belanja</h2>
+            <div class="cart-section">
+                <?php 
+                $grand_total = 0; $total_item = 0;
+                if (!empty($_SESSION['cart'])):
+                    foreach ($_SESSION['cart'] as $id_produk => $jumlah): 
+                        $res_prod = mysqli_query($conn, "SELECT * FROM produk WHERE id_produk='$id_produk'");
+                        $prod = mysqli_fetch_assoc($res_prod);
+                        if ($prod) { $grand_total += ($prod['harga'] * $jumlah); $total_item += $jumlah; }
+                ?>
+                    <div class="cart-item">
+                        <div class="item-details">
+                            <h4><?= htmlspecialchars($prod['nama_produk']); ?></h4>
+                            <p style="font-size:0.8rem; color:#888;">Ukuran: M</p>
+                            <form action="update_cart.php" method="POST" id="form-<?= $id_produk; ?>">
+                                <input type="hidden" name="id_produk" value="<?= $id_produk; ?>">
+                                <div class="qty-control">
+                                    <button type="button" class="qty-btn" onclick="changeQty('<?= $id_produk; ?>', -1)">-</button>
+                                    <input type="number" name="qty" id="qty-<?= $id_produk; ?>" value="<?= $jumlah; ?>" class="qty-val" readonly>
+                                    <button type="button" class="qty-btn" onclick="changeQty('<?= $id_produk; ?>', 1)">+</button>
+                                </div>
+                            </form>
+                        </div>
+                        <a href="cart.php?hapus=<?= $id_produk; ?>" class="btn-delete-link"><i class="fa-solid fa-trash-can"></i></a>
+                    </div>
+                <?php 
+                    endforeach;
+                else: 
+                ?>
+                    <div class="cart-item">
+                        <div class="item-details">
+                            <h4>Hoodie Hawkins A.V. CLUB</h4>
+                            <p style="font-size:0.8rem; color:#888;">Ukuran: M</p>
+                            <div class="qty-control"><button class="qty-btn">-</button><input class="qty-val" value="1" readonly><button class="qty-btn">+</button></div>
+                        </div>
+                        <a href="#" class="btn-delete-link"><i class="fa-solid fa-trash-can"></i></a>
+                    </div>
+                <?php $grand_total = 428000; $total_item = 3; endif; ?>
             </div>
-            <ul class="sidebar-menu">
-                <li><a href="admin.php"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
-                <li><a href="admin_kategori.php"><i class="fa-solid fa-box-open"></i> Kategori</a></li>
-                <li class="active"><a href="data_pesanan.php"><i class="fa-solid fa-file-invoice-dollar"></i> Pesanan</a></li>
-                <li><a href="../auth/logout.php" style="color: #ff4444;"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a></li>
-            </ul>
-        </aside>
-        <main class="content-area">
-            <h3 class="panel-title">Data Pesanan</h3>
-            <div class="table-box">
-                <table class="order-table">
-                    <thead>
-                        <tr><th>ID Order</th><th>Pelanggan</th><th>Tanggal</th><th>Total</th><th>Status</th><th style="text-align: center;">Aksi</th></tr>
-                    </thead>
-                    <tbody>
-                        <?php 
-                        if ($result && mysqli_num_rows($result) > 0):
-                            while ($row = mysqli_fetch_assoc($result)): 
-                                $id = $row['id_transaksi'] ?? $row['id_pesanan'];
-                                $tgl = $row['tanggal_transaksi'] ?? ($row['tanggal'] ?? '---');
-                                $total = $row['total_bayar'] ?? ($row['total'] ?? 0);
-                                $status = $row['status_pesanan'] ?? ($row['status'] ?? 'Menunggu');
-                        ?>
-                            <tr>
-                                <td><strong>#ORD-<?= $id; ?></strong></td>
-                                <td><?= htmlspecialchars($row['nama'] ?? 'Pelanggan'); ?></td>
-                                <td><?= $tgl; ?></td>
-                                <td style="color:#E50914; font-weight:600;">Rp <?= number_format($total, 0, ',', '.'); ?></td>
-                                <td><span class="status-badge menunggu"><?= $status; ?></span></td>
-                                <td style="text-align: center;"><a href="update_status.php?id=<?= $id; ?>" class="btn-edit-status"><i class="fa-solid fa-pen"></i></a></td>
-                            </tr>
-                        <?php 
-                            endwhile;
-                        else: 
-                        ?>
-                            <tr>
-                                <td><strong>#ORD-0001</strong></td>
-                                <td>Diva Syafira</td>
-                                <td>24 Mei 2026</td>
-                                <td style="color:#E50914; font-weight:600;">Rp 448.000</td>
-                                <td><span class="status-badge selesai">Selesai</span></td>
-                                <td style="text-align: center;"><a href="#" class="btn-edit-status"><i class="fa-solid fa-pen"></i></a></td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+        </div>
+        <div>
+            <h2>Ringkasan Belanja</h2>
+            <div class="summary-section">
+                <div class="summary-row"><span>Subtotal (<?= $total_item; ?> Produk)</span><strong>Rp <?= number_format($grand_total, 0, ',', '.'); ?></strong></div>
+                <div style="margin-bottom:15px;"><label>Isi Alamat</label><input type="text" class="summary-input" placeholder="Alamat kirim..."></div>
+                <div class="summary-row" style="margin-top:20px; border-top:1px dashed #333; padding-top:15px;"><span>Total Belanja</span><strong style="color:#FF5722;">Rp <?= number_format($grand_total + 20000, 0, ',', '.'); ?></strong></div>
+                <a href="checkout.php" class="btn-checkout">CHECKOUT</a>
             </div>
-        </main>
-    </div>
+        </div>
+    </main>
+    <script>
+    function changeQty(id, change) {
+        var input = document.getElementById('qty-' + id);
+        var val = parseInt(input.value) + change;
+        if (val >= 0) { input.value = val; document.getElementById('form-' + id).submit(); }
+    }
+    </script>
 </body>
 </html>
