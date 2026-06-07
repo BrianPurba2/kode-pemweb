@@ -106,7 +106,7 @@ $result = mysqli_query($conn, $query);
     <!-- CONTAINER MAIN LAYOUT -->
     <div class="main-layout">
         
-        <!-- SIDEBAR (KIRI) -->
+        <!-- SIDEBAR -->
         <aside class="sidebar">
             <div class="user-profile">
                 <img src="../assets/img/avatar_dustin.png" class="user-avatar" alt="Avatar">
