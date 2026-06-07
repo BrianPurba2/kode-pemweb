@@ -6,23 +6,19 @@ if (!isset($_SESSION['id_user'])) {
 }
 include '../config/koneksi.php';
 
+$id_user = $_SESSION['id_user'];
 $nama_user = isset($_SESSION['nama']) ? $_SESSION['nama'] : 'Diva';
-$kategori_aktif = isset($_GET['kategori']) ? $_GET['kategori'] : 'tshirt';
 
-$judul_halaman = 'T-SHIRT';
-if ($kategori_aktif == 'hoodie') { $judul_halaman = 'HOODIE'; }
-elseif ($kategori_aktif == 'mug') { $judul_halaman = 'MUG'; }
-elseif ($kategori_aktif == 'topi') { $judul_halaman = 'TOPI'; }
-
-$query_produk = "SELECT * FROM produk WHERE kategori = '$kategori_aktif' ORDER BY id_produk DESC";
-$result_produk = mysqli_query($conn, $query_produk);
+$nama_tabel = 'pesanan';
+$cek_tabel = mysqli_query($conn, "SHOW TABLES LIKE 'transaksi'");
+if ($cek_tabel && mysqli_num_rows($cek_tabel) > 0) { $nama_tabel = 'transaksi'; }
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Produk - Stranger Merch Store</title>
+    <title>Riwayat Pemesanan - Stranger Merch Store</title>
     <link rel="stylesheet" href="https://cloudflare.com">
     <link href="https://googleapis.com" rel="stylesheet">
     <style>
@@ -34,26 +30,25 @@ $result_produk = mysqli_query($conn, $query_produk);
         .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.85rem; font-weight: 500; text-transform: uppercase; }
         .nav-links a.active { color: #E50914; font-weight: 600; }
         .user-menu { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; }
-        .main-layout { display: flex; padding: 35px 6%; gap: 30px; align-items: flex-start; }
-        .kategori-sidebar { width: 220px; background: rgba(15, 5, 5, 0.4); border: 2px solid #E50914; border-radius: 12px; padding: 20px; }
-        .sidebar-head { background: #E50914; color: white; text-align: center; font-size: 0.8rem; font-weight: 700; padding: 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; }
-        .sidebar-links { list-style: none; display: flex; flex-direction: column; gap: 5px; text-align: center; }
-        .sidebar-links a { color: #ccc; text-decoration: none; font-size: 0.85rem; display: block; padding: 10px; border-radius: 6px; }
-        .sidebar-links li.active a { background: #E50914; color: white !important; font-weight: 600; }
-        .btn-back { display: block; text-align: center; color: #666; text-decoration: none; font-size: 0.8rem; margin-top: 25px; }
-        .display-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; }
-        .category-header-title { font-size: 1.4rem; font-weight: 700; text-transform: uppercase; text-align: center; letter-spacing: 2px; margin-bottom: 10px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 15px; color: #fff; }
-        .product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .item-card { background: rgba(15, 5, 5, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; }
-        .image-container { width: 100%; height: 160px; background: #120404; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; overflow: hidden; }
-        .image-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .info-box h4 { font-size: 0.85rem; font-weight: 500; color: #fff; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .info-box .price { font-size: 0.9rem; color: #aaa; font-weight: 500; margin-bottom: 8px; }
-        .stars { color: #FF9800; font-size: 0.7rem; margin-bottom: 12px; }
-        .card-actions { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; margin-top: auto; }
-        .card-actions i { font-size: 0.9rem; color: #666; cursor: pointer; }
-        .card-actions i:hover { color: #E50914; }
-        .card-actions a { color: inherit; text-decoration: none; }
+        .container { padding: 40px 8%; display: flex; flex-direction: column; gap: 20px; }
+        .page-title { font-size: 1.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-left: 4px solid #E50914; padding-left: 12px; margin-bottom: 10px; }
+        .status-tabs { display: flex; gap: 10px; list-style: none; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
+        .tab-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); padding: 6px 16px; border-radius: 6px; font-size: 0.8rem; color: #ccc; white-space: nowrap; }
+        .tab-item.active { background: rgba(229, 9, 20, 0.1); border-color: #E50914; color: white; font-weight: 500; }
+        .order-card-wide { background: rgba(15, 5, 5, 0.6); border: 2px solid #E50914; border-radius: 12px; padding: 25px; display: flex; justify-content: space-between; gap: 30px; box-shadow: 0 0 15px rgba(229, 9, 20, 0.2); margin-bottom: 20px; }
+        .order-meta-info { width: 220px; display: flex; flex-direction: column; gap: 12px; border-right: 1px solid rgba(255,255,255,0.08); padding-right: 15px; }
+        .order-id-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
+        .order-id-label strong { color: #fff; font-size: 1rem; display: block; margin-top: 2px; }
+        .meta-group { font-size: 0.75rem; color: #888; }
+        .meta-group span { display: block; color: #fff; font-weight: 500; margin-top: 2px; }
+        .order-products-snaps { flex: 1; display: flex; gap: 15px; align-items: center; overflow-x: auto; }
+        .snap-item { background: rgba(15, 5, 5, 0.5); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; width: 100px; text-align: center; flex-shrink: 0; }
+        .snap-img-box { width: 100%; height: 60px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; background: #150505; border-radius: 4px; overflow: hidden; }
+        .snap-img-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .snap-img-box i { font-size: 1.5rem; color: rgba(255,255,255,0.03); }
+        .snap-name { font-size: 0.65rem; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .snap-qty { font-size: 0.6rem; color: #666; }
+        .btn-bottom-back { display: flex; align-items: center; gap: 6px; color: #666; text-decoration: none; font-size: 0.85rem; width: max-content; }
     </style>
 </head>
 <body>
@@ -61,72 +56,63 @@ $result_produk = mysqli_query($conn, $query_produk);
         <a href="home.php" class="logo">STRANGER MERCH STORE</a>
         <ul class="nav-links">
             <li><a href="home.php">HOME</a></li>
-            <li><a href="produk.php" class="active">PRODUK</a></li>
-            <li><a href="riwayat.php">RIWAYAT PESANAN</a></li>
+            <li><a href="produk.php">PRODUK</a></li>
+            <li><a href="riwayat.php" class="active">RIWAYAT PESANAN</a></li>
             <li><a href="cart.php"><i class="fa-solid fa-basket-shopping"></i></a></li>
             <li class="user-menu"><i class="fa-regular fa-user"></i> Hi, <?= htmlspecialchars($nama_user); ?> <i class="fa-solid fa-caret-down"></i></li>
         </ul>
     </nav>
-    <div class="main-layout">
-        <aside class="kategori-sidebar">
-            <div class="sidebar-head">Kategori</div>
-            <ul class="sidebar-links">
-                <li class="<?= $kategori_aktif == 'tshirt' ? 'active' : ''; ?>"><a href="produk.php?kategori=tshirt">T-Shirt</a></li>
-                <li class="<?= $kategori_aktif == 'hoodie' ? 'active' : ''; ?>"><a href="produk.php?kategori=hoodie">Hoodie</a></li>
-                <li class="<?= $kategori_aktif == 'mug' ? 'active' : ''; ?>"><a href="produk.php?kategori=mug">Mug</a></li>
-                <li class="<?= $kategori_aktif == 'topi' ? 'active' : ''; ?>"><a href="produk.php?kategori=topi">Topi</a></li>
-            </ul>
-            <a href="home.php" class="btn-back"><i class="fa-solid fa-caret-left"></i> Back</a>
-        </aside>
-        <main class="display-panel">
-            <h2 class="category-header-title"><?= $judul_halaman; ?></h2>
-            <div class="product-grid">
-                <?php 
-                if ($result_produk && mysqli_num_rows($result_produk) > 0):
-                    while ($p = mysqli_fetch_assoc($result_produk)):
-                        $nama_gambar = !empty($p['foto']) ? $p['foto'] : ($p['gambar_produk'] ?? 'default.png');
-                ?>
-                    <div class="item-card">
-                        <div class="image-container">
-                            <img src="../assets/img/produk/<?= $nama_gambar; ?>" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://w3.org\' viewBox=\'0 0 24 24\' fill=\'%23222\'><rect width=\'100%\' height=\'100%\'/></svg>'">
-                        </div>
-                        <div class="info-box">
-                            <h4><?= htmlspecialchars($p['nama_produk']); ?></h4>
-                            <div class="price">Rp <?= number_format($p['harga'], 0, ',', '.'); ?></div>
-                            <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                        </div>
-                        <div class="card-actions">
-                            <i class="fa-regular fa-eye"></i><i class="fa-regular fa-heart"></i>
-                            <a href="tambah_cart.php?id=<?= $p['id_produk']; ?>"><i class="fa-solid fa-basket-shopping"></i></a>
-                        </div>
+    <main class="container">
+        <h2 class="page-title">Riwayat Pemesanan</h2>
+        <ul class="status-tabs">
+            <li class="tab-item active">Semua Pesanan</li>
+            <li class="tab-item">Menunggu</li>
+            <li class="tab-item">Dikemas</li>
+            <li class="tab-item">Dikirim</li>
+            <li class="tab-item">Selesai</li>
+        </ul>
+        <?php
+        $q_orders = mysqli_query($conn, "SELECT * FROM $nama_tabel WHERE id_user='$id_user' ORDER BY id_user DESC");
+        if ($q_orders && mysqli_num_rows($q_orders) > 0):
+            while ($ord = mysqli_fetch_assoc($q_orders)):
+                $id_ord = $ord['id_transaksi'] ?? $ord['id_pesanan'];
+                $tgl = $ord['tanggal_transaksi'] ?? ($ord['tanggal'] ?? '---');
+                $total = $ord['total_bayar'] ?? ($ord['total'] ?? 0);
+        ?>
+            <div class="order-card-wide">
+                <div class="order-meta-info">
+                    <div class="order-id-label">Order ID <strong>#ORD-<?= $id_ord; ?></strong></div>
+                    <div class="meta-group">Tanggal Pemesanan <span><?= $tgl; ?></span></div>
+                    <div class="meta-group">Total Pemesanan <span style="color:#E50914; font-weight:600;">Rp <?= number_format($total, 0, ',', '.'); ?></span></div>
+                </div>
+                <div class="order-products-snaps">
+                    <div class="snap-item">
+                        <div class="snap-img-box"><i class="fa-solid fa-shirt"></i></div>
+                        <div class="snap-name">Produk Belanja</div>
+                        <div class="snap-qty">x1</div>
                     </div>
-                <?php 
-                    endwhile;
-                else: 
-                    $mockups = ($kategori_aktif == 'tshirt') ? [
-                        ['t' => 'T-Shirt Hawkins Lab', 'p' => '120.000'],
-                        ['t' => 'T-Shirt The Upside Down', 'p' => '149.308']
-                    ] : [
-                        ['t' => 'Hoodie The Upside Down', 'p' => '230.000'],
-                        ['t' => 'Hoodie Hawkins Indiana', 'p' => '220.000']
-                    ];
-                    foreach ($mockups as $mo):
-                ?>
-                    <div class="item-card">
-                        <div class="image-container"><i class="fa-solid fa-shirt" style="font-size: 3rem; color: rgba(255,255,255,0.03);"></i></div>
-                        <div class="info-box">
-                            <h4><?= $mo['t']; ?></h4>
-                            <div class="price">Rp <?= $mo['p']; ?></div>
-                            <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                        </div>
-                        <div class="card-actions"><i class="fa-regular fa-eye"></i><i class="fa-regular fa-heart"></i><i class="fa-solid fa-basket-shopping"></i></div>
-                    </div>
-                <?php 
-                    endforeach;
-                endif; 
-                ?>
+                </div>
             </div>
-        </main>
-    </div>
+        <?php 
+            endwhile;
+        else: 
+        ?>
+            <div class="order-card-wide">
+                <div class="order-meta-info">
+                    <div class="order-id-label">Order ID <strong>#ORD-0001</strong></div>
+                    <div class="meta-group">Tanggal Pemesanan <span>24 Mei 2026, 14:30</span></div>
+                    <div class="meta-group">Total Pemesanan <span style="color:#E50914; font-weight:600;">Rp 448.000</span></div>
+                </div>
+                <div class="order-products-snaps">
+                    <div class="snap-item">
+                        <div class="snap-img-box"><i class="fa-solid fa-shirt" style="font-size:1.5rem; color:rgba(255,255,255,0.03);"></i></div>
+                        <div class="snap-name">Hoodie Hawkins AH</div>
+                        <div class="snap-qty">x1</div>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+        <a href="home.php" class="btn-bottom-back"><i class="fa-solid fa-caret-left"></i> Back</a>
+    </main>
 </body>
 </html>
