@@ -1,118 +1,121 @@
 <?php
 session_start();
-if (!isset($_SESSION['id_user'])) {
-    header("Location: ../auth/login.php");
+if (!isset($_SESSION['id_admin'])) {
+    header("Location: login_admin.php");
     exit;
 }
 include '../config/koneksi.php';
 
-$id_user = $_SESSION['id_user'];
-$nama_user = isset($_SESSION['nama']) ? $_SESSION['nama'] : 'Diva';
-
 $nama_tabel = 'pesanan';
 $cek_tabel = mysqli_query($conn, "SHOW TABLES LIKE 'transaksi'");
-if ($cek_tabel && mysqli_num_rows($cek_tabel) > 0) { $nama_tabel = 'transaksi'; }
+if ($cek_tabel && mysqli_num_rows($cek_tabel) > 0) {
+    $nama_tabel = 'transaksi';
+}
+
+if ($nama_tabel == 'transaksi') {
+    $query = "SELECT * FROM transaksi ORDER BY id_transaksi DESC";
+} else {
+    $query = "SELECT * FROM pesanan ORDER BY id_pesanan DESC";
+}
+$result = mysqli_query($conn, $query);
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Riwayat Pemesanan - Stranger Merch Store</title>
+    <title>Pesanan Admin - Stranger Merch Store</title>
     <link rel="stylesheet" href="https://cloudflare.com">
     <link href="https://googleapis.com" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
         body { background: #0a0202; color: #ffffff; min-height: 100vh; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 6%; background: rgba(10, 2, 2, 0.95); border-bottom: 2px solid #E50914; position: sticky; top: 0; z-index: 100; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 4%; background: #0a0202; border-bottom: 2px solid #E50914; position: sticky; top: 0; z-index: 100; }
         .navbar .logo { font-family: 'Cinzel Decorative', serif; color: #E50914; font-size: 1.3rem; text-decoration: none; font-weight: 700; }
         .nav-links { display: flex; list-style: none; gap: 25px; align-items: center; }
         .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.85rem; font-weight: 500; text-transform: uppercase; }
-        .nav-links a.active { color: #E50914; font-weight: 600; }
-        .user-menu { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; }
-        .container { padding: 40px 8%; display: flex; flex-direction: column; gap: 20px; }
-        .page-title { font-size: 1.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-left: 4px solid #E50914; padding-left: 12px; margin-bottom: 10px; }
-        .status-tabs { display: flex; gap: 10px; list-style: none; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
-        .tab-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); padding: 6px 16px; border-radius: 6px; font-size: 0.8rem; color: #ccc; white-space: nowrap; }
-        .tab-item.active { background: rgba(229, 9, 20, 0.1); border-color: #E50914; color: white; font-weight: 500; }
-        .order-card-wide { background: rgba(15, 5, 5, 0.6); border: 2px solid #E50914; border-radius: 12px; padding: 25px; display: flex; justify-content: space-between; gap: 30px; box-shadow: 0 0 15px rgba(229, 9, 20, 0.2); margin-bottom: 20px; }
-        .order-meta-info { width: 220px; display: flex; flex-direction: column; gap: 12px; border-right: 1px solid rgba(255,255,255,0.08); padding-right: 15px; }
-        .order-id-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
-        .order-id-label strong { color: #fff; font-size: 1rem; display: block; margin-top: 2px; }
-        .meta-group { font-size: 0.75rem; color: #888; }
-        .meta-group span { display: block; color: #fff; font-weight: 500; margin-top: 2px; }
-        .order-products-snaps { flex: 1; display: flex; gap: 15px; align-items: center; overflow-x: auto; }
-        .snap-item { background: rgba(15, 5, 5, 0.5); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; width: 100px; text-align: center; flex-shrink: 0; }
-        .snap-img-box { width: 100%; height: 60px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; background: #150505; border-radius: 4px; overflow: hidden; }
-        .snap-img-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .snap-img-box i { font-size: 1.5rem; color: rgba(255,255,255,0.03); }
-        .snap-name { font-size: 0.65rem; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .snap-qty { font-size: 0.6rem; color: #666; }
-        .btn-bottom-back { display: flex; align-items: center; gap: 6px; color: #666; text-decoration: none; font-size: 0.85rem; width: max-content; }
+        .nav-links a.active { color: #E50914; }
+        .main-layout { display: flex; padding: 25px 4%; gap: 25px; align-items: flex-start; }
+        .sidebar { width: 240px; background: rgba(10, 2, 2, 0.6); border: 1px solid rgba(229, 9, 20, 0.3); border-radius: 10px; padding: 20px; }
+        .user-profile { display: flex; align-items: center; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+        .user-avatar { width: 45px; height: 45px; border-radius: 50%; background: #1a1a1a; border: 2px solid #E50914; object-fit: cover; }
+        .sidebar-menu { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-menu a { display: flex; align-items: center; gap: 12px; color: #bbb; text-decoration: none; padding: 10px 15px; font-size: 0.85rem; border-radius: 6px; }
+        .sidebar-menu li.active a { background: #E50914; color: white !important; font-weight: 500; }
+        .content-area { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+        .table-box { background: rgba(15, 5, 5, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; overflow: hidden; padding: 12px; }
+        .order-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .order-table th, .order-table td { padding: 12px 15px; font-size: 0.8rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .order-table th { background: rgba(229, 9, 20, 0.1); color: #E50914; font-weight: 600; text-transform: uppercase; }
+        .status-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; display: inline-block; }
+        .status-badge.selesai { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
+        .status-badge.menunggu { background: rgba(233, 30, 99, 0.15); color: #E91E63; }
+        .btn-edit-status { color: #fff; background: rgba(255,255,255,0.05); text-decoration: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
     <nav class="navbar">
-        <a href="home.php" class="logo">STRANGER MERCH STORE</a>
+        <a href="admin.php" class="logo">STRANGER MERCH STORE</a>
         <ul class="nav-links">
-            <li><a href="home.php">HOME</a></li>
-            <li><a href="produk.php">PRODUK</a></li>
-            <li><a href="riwayat.php" class="active">RIWAYAT PESANAN</a></li>
-            <li><a href="cart.php"><i class="fa-solid fa-basket-shopping"></i></a></li>
-            <li class="user-menu"><i class="fa-regular fa-user"></i> Hi, <?= htmlspecialchars($nama_user); ?> <i class="fa-solid fa-caret-down"></i></li>
+            <li><a href="admin.php">HOME</a></li>
+            <li><a href="admin_kategori.php">PRODUK</a></li>
+            <li><a href="data_pesanan.php" class="active">RIWAYAT PESANAN</a></li>
         </ul>
     </nav>
-    <main class="container">
-        <h2 class="page-title">Riwayat Pemesanan</h2>
-        <ul class="status-tabs">
-            <li class="tab-item active">Semua Pesanan</li>
-            <li class="tab-item">Menunggu</li>
-            <li class="tab-item">Dikemas</li>
-            <li class="tab-item">Dikirim</li>
-            <li class="tab-item">Selesai</li>
-        </ul>
-        <?php
-        $q_orders = mysqli_query($conn, "SELECT * FROM $nama_tabel WHERE id_user='$id_user' ORDER BY id_user DESC");
-        if ($q_orders && mysqli_num_rows($q_orders) > 0):
-            while ($ord = mysqli_fetch_assoc($q_orders)):
-                $id_ord = $ord['id_transaksi'] ?? $ord['id_pesanan'];
-                $tgl = $ord['tanggal_transaksi'] ?? ($ord['tanggal'] ?? '---');
-                $total = $ord['total_bayar'] ?? ($ord['total'] ?? 0);
-        ?>
-            <div class="order-card-wide">
-                <div class="order-meta-info">
-                    <div class="order-id-label">Order ID <strong>#ORD-<?= $id_ord; ?></strong></div>
-                    <div class="meta-group">Tanggal Pemesanan <span><?= $tgl; ?></span></div>
-                    <div class="meta-group">Total Pemesanan <span style="color:#E50914; font-weight:600;">Rp <?= number_format($total, 0, ',', '.'); ?></span></div>
-                </div>
-                <div class="order-products-snaps">
-                    <div class="snap-item">
-                        <div class="snap-img-box"><i class="fa-solid fa-shirt"></i></div>
-                        <div class="snap-name">Produk Belanja</div>
-                        <div class="snap-qty">x1</div>
-                    </div>
-                </div>
+    <div class="main-layout">
+        <aside class="sidebar">
+            <div class="user-profile">
+                <img src="../assets/img/avatar_dustin.png" class="user-avatar" alt="">
+                <div><h4>Admin Hawkins</h4><p>Online</p></div>
             </div>
-        <?php 
-            endwhile;
-        else: 
-        ?>
-            <div class="order-card-wide">
-                <div class="order-meta-info">
-                    <div class="order-id-label">Order ID <strong>#ORD-0001</strong></div>
-                    <div class="meta-group">Tanggal Pemesanan <span>24 Mei 2026, 14:30</span></div>
-                    <div class="meta-group">Total Pemesanan <span style="color:#E50914; font-weight:600;">Rp 448.000</span></div>
-                </div>
-                <div class="order-products-snaps">
-                    <div class="snap-item">
-                        <div class="snap-img-box"><i class="fa-solid fa-shirt" style="font-size:1.5rem; color:rgba(255,255,255,0.03);"></i></div>
-                        <div class="snap-name">Hoodie Hawkins AH</div>
-                        <div class="snap-qty">x1</div>
-                    </div>
-                </div>
+            <ul class="sidebar-menu">
+                <li><a href="admin.php"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="admin_kategori.php"><i class="fa-solid fa-box-open"></i> Kategori</a></li>
+                <li class="active"><a href="data_pesanan.php"><i class="fa-solid fa-file-invoice-dollar"></i> Pesanan</a></li>
+                <li><a href="../auth/logout.php" style="color: #ff4444;"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a></li>
+            </ul>
+        </aside>
+        <main class="content-area">
+            <h3 class="panel-title">Data Pesanan</h3>
+            <div class="table-box">
+                <table class="order-table">
+                    <thead>
+                        <tr><th>ID Order</th><th>Pelanggan</th><th>Tanggal</th><th>Total</th><th>Status</th><th style="text-align: center;">Aksi</th></tr>
+                    </thead>
+                    <tbody>
+                        <?php 
+                        if ($result && mysqli_num_rows($result) > 0):
+                            while ($row = mysqli_fetch_assoc($result)): 
+                                $id = $row['id_transaksi'] ?? $row['id_pesanan'];
+                                $tgl = $row['tanggal_transaksi'] ?? ($row['tanggal'] ?? '---');
+                                $total = $row['total_bayar'] ?? ($row['total'] ?? 0);
+                                $status = $row['status_pesanan'] ?? ($row['status'] ?? 'Menunggu');
+                        ?>
+                            <tr>
+                                <td><strong>#ORD-<?= $id; ?></strong></td>
+                                <td><?= htmlspecialchars($row['nama'] ?? 'Pelanggan'); ?></td>
+                                <td><?= $tgl; ?></td>
+                                <td style="color:#E50914; font-weight:600;">Rp <?= number_format($total, 0, ',', '.'); ?></td>
+                                <td><span class="status-badge menunggu"><?= $status; ?></span></td>
+                                <td style="text-align: center;"><a href="update_status.php?id=<?= $id; ?>" class="btn-edit-status"><i class="fa-solid fa-pen"></i></a></td>
+                            </tr>
+                        <?php 
+                            endwhile;
+                        else: 
+                        ?>
+                            <tr>
+                                <td><strong>#ORD-0001</strong></td>
+                                <td>Diva Syafira</td>
+                                <td>24 Mei 2026</td>
+                                <td style="color:#E50914; font-weight:600;">Rp 448.000</td>
+                                <td><span class="status-badge selesai">Selesai</span></td>
+                                <td style="text-align: center;"><a href="#" class="btn-edit-status"><i class="fa-solid fa-pen"></i></a></td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
-        <?php endif; ?>
-        <a href="home.php" class="btn-bottom-back"><i class="fa-solid fa-caret-left"></i> Back</a>
-    </main>
+        </main>
+    </div>
 </body>
 </html>
