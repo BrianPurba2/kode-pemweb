@@ -1,20 +1,19 @@
 <?php
 session_start();
-// Proteksi Keamanan: Pastikan pembeli sudah login
 if (!isset($_SESSION['id_user'])) {
     header("Location: ../auth/login.php");
     exit;
 }
 include '../config/koneksi.php';
 
-$id_user = $_SESSION['id_user'];
 $nama_user = isset($_SESSION['nama']) ? $_SESSION['nama'] : 'Diva';
 
-// Proteksi otomatis nama tabel transaksi/pesanan agar tidak error database
-$nama_tabel = 'pesanan';
-$cek_tabel = mysqli_query($conn, "SHOW TABLES LIKE 'transaksi'");
-if ($cek_tabel && mysqli_num_rows($cek_tabel) > 0) {
-    $nama_tabel = 'transaksi';
+// Menghapus item tertentu dari keranjang jika ada perintah 'hapus'
+if (isset($_GET['hapus'])) {
+    $id_hapus = intval($_GET['hapus']);
+    unset($_SESSION['cart'][$id_hapus]);
+    header("Location: cart.php");
+    exit;
 }
 ?>
 
@@ -23,7 +22,8 @@ if ($cek_tabel && mysqli_num_rows($cek_tabel) > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Riwayat Pemesanan - Stranger Merch Store</title>
+    <title>Keranjang Belanja - Stranger Merch Store</title>
+    <!-- Font Awesome untuk Icon Trash & Keranjang -->
     <link rel="stylesheet" href="https://cloudflare.com">
     <link href="https://googleapis.com" rel="stylesheet">
     
@@ -31,63 +31,118 @@ if ($cek_tabel && mysqli_num_rows($cek_tabel) > 0) {
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
         body { background: #0a0202; color: #ffffff; min-height: 100vh; }
         
-        /* TOP NAVBAR */
+        /* NAVBAR STYLE */
         .navbar {
             display: flex; justify-content: space-between; align-items: center;
             padding: 15px 6%; background: rgba(10, 2, 2, 0.95); border-bottom: 2px solid #E50914;
             position: sticky; top: 0; z-index: 100;
         }
-        .navbar .logo { font-family: 'Cinzel Decorative', serif; color: #E50914; font-size: 1.3rem; text-decoration: none; font-weight: 700; }
+        .navbar .logo { font-family: 'Cinzel Decorative', serif; color: #E50914; font-size: 1.3rem; text-decoration: none; font-weight: 700; letter-spacing: 1px; }
         .nav-links { display: flex; list-style: none; gap: 25px; align-items: center; }
         .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.85rem; font-weight: 500; text-transform: uppercase; }
         .nav-links a.active { color: #E50914; font-weight: 600; }
         .user-menu { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 4px; font-size: 0.85rem;}
 
-        /* CONTAINER UTAMA MELEBAR PENUH SSUAI FIGMA */
-        .container { padding: 40px 8%; display: flex; flex-direction: column; gap: 20px; }
+        /* LAYOUT UTAMA (2 KOLOM BERDAMPINGAN) */
+        .container { padding: 40px 6%; }
+        .cart-wrapper {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 35px;
+            margin-top: 10px;
+        }
         
-        /* JUDUL HALAMAN GARIS MERAH */
-        .page-title {
-            font-size: 1.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
-            border-left: 4px solid #E50914; padding-left: 12px; margin-bottom: 10px;
+        .column-title {
+            font-size: 1.2rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 20px; color: #fff;
         }
 
-        /* TABS FILTER HORIZONTAL */
-        .status-tabs { display: flex; gap: 10px; list-style: none; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
-        .tab-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); padding: 6px 16px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; color: #ccc; white-space: nowrap; transition: 0.2s; }
-        .tab-item.active { background: rgba(229, 9, 20, 0.1); border-color: #E50914; color: white; font-weight: 500; }
-
-        /* KOTAK DAFTAR PESANAN BINGKAI MERAH MENYALA */
-        .order-card-wide {
-            background: rgba(15, 5, 5, 0.6);
-            border: 2px solid #E50914;
-            border-radius: 12px;
-            padding: 25px;
-            display: flex;
-            justify-content: space-between;
-            gap: 30px;
-            box-shadow: 0 0 15px rgba(229, 9, 20, 0.2);
-            margin-bottom: 20px;
+        /* BOX KIRI: DAFTAR KERANJANG BELANJA */
+        .cart-section {
+            border: 2px solid #E50914; border-radius: 12px; padding: 20px; background: rgba(10,2,2,0.6);
         }
+        .cart-item {
+            display: flex; align-items: center; gap: 20px;
+            padding: 15px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .cart-item:last-child { border-bottom: none; }
+        
+        .item-img {
+            width: 75px; height: 75px; background: #150505; border-radius: 8px; object-fit: contain; padding: 5px; border: 1px solid rgba(255,255,255,0.05);
+        }
+        .item-details { flex: 1; }
+        .item-name { font-size: 0.9rem; font-weight: 600; margin-bottom: 2px; color: #fff; }
+        .item-size { font-size: 0.75rem; color: #888; margin-bottom: 8px; }
+        
+        /* TIMBOL MINUS PLUS INPUT QUANTITY */
+        .qty-action-container { display: flex; align-items: center; justify-content: space-between; max-width: 140px; }
+        .qty-control {
+            display: flex; align-items: center; background: #110404; 
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;
+        }
+        .qty-btn {
+            background: none; border: none; color: white; width: 28px; height: 28px; 
+            font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        }
+        .qty-btn:hover { background: rgba(229, 9, 20, 0.15); }
+        .qty-val {
+            background: none; border: none; color: white; width: 35px; text-align: center; font-size: 0.85rem; font-weight: 600;
+        }
+        .qty-val::-webkit-inner-spin-button, .qty-val::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
-        /* KOLOM INFO TEKS KIRI */
-        .order-meta-info { width: 220px; display: flex; flex-direction: column; gap: 12px; border-right: 1px solid rgba(255,255,255,0.08); padding-right: 15px; }
-        .order-id-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
-        .order-id-label strong { color: #fff; font-size: 1rem; display: block; margin-top: 2px; letter-spacing: 0.5px; }
-        .meta-group { font-size: 0.75rem; color: #888; }
-        .meta-group span { display: block; color: #fff; font-weight: 500; margin-top: 2px; font-size: 0.85rem; }
+        /* ICON SAMPAH ORANJE MERAH */
+        .btn-delete-link { color: #FF5722; font-size: 1.1rem; cursor: pointer; transition: 0.2s; padding: 5px; text-decoration: none; }
+        .btn-delete-link:hover { color: #E50914; transform: scale(1.1); }
 
-        /* KOLOM DAFTAR SNAPS GAMBAR PRODUK TENGAH-KANAN */
-        .order-products-snaps { flex: 1; display: flex; gap: 15px; align-items: center; overflow-x: auto; }
-        .snap-item { background: rgba(15, 5, 5, 0.5); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; width: 100px; text-align: center; flex-shrink: 0; }
-        .snap-img-box { width: 100%; height: 60px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; background: #150505; border-radius: 4px; overflow: hidden; }
-        .snap-img-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .snap-img-box i { font-size: 1.5rem; color: rgba(255,255,255,0.03); }
-        .snap-name { font-size: 0.65rem; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .snap-qty { font-size: 0.6rem; color: #666; margin-top: 1px; }
+        /* BOX KANAN: RINGKASAN BELANJA */
+        .summary-section {
+            border: 2px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 25px; background: rgba(10,2,2,0.6); height: max-content;
+        }
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 0.85rem; color: #aaa;
+        }
+        .summary-row strong { color: #fff; }
+        
+        .form-label { font-size: 0.8rem; color: #ccc; display: block; margin-bottom: 5px; }
+        .summary-input, .summary-select {
+            width: 100%; padding: 10px; background: #110404; border: 1px solid rgba(255,255,255,0.15); 
+            border-radius: 6px; color: white; font-size: 0.85rem; margin-top: 2px; outline: none; transition: 0.2s;
+        }
+        .summary-input:focus, .summary-select:focus { border-color: #E50914; }
+        
+        .shipping-box {
+            display: flex; gap: 10px; align-items: flex-end; width: 100%;
+        }
+        .btn-cek {
+            background: #FF5722; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.2s;
+        }
+        .btn-cek:hover { background: #e64a19; }
+        
+        .total-box {
+            margin-top: 25px; padding-top: 20px; border-top: 1px dashed rgba(255,255,255,0.15);
+        }
+        .total-title { font-size: 1.1rem; font-weight: 600; color: #fff; }
+        .total-amount { font-size: 1.25rem; color: #FF5722; font-weight: 700; }
 
-        .btn-bottom-back { display: flex; align-items: center; gap: 6px; color: #666; text-decoration: none; font-size: 0.85rem; width: max-content; transition: 0.2s; }
-        .btn-bottom-back:hover { color: #fff; }
+        .btn-checkout {
+            display: block; width: 100%; padding: 12px; background: #E50914; color: white; 
+            text-align: center; text-decoration: none; font-weight: 700; border-radius: 6px; 
+            margin-top: 20px; letter-spacing: 0.5px; font-size: 0.9rem; text-transform: uppercase; box-shadow: 0 4px 10px rgba(229, 9, 20, 0.2); transition: 0.2s;
+        }
+        .btn-checkout:hover { background: #b8070f; }
+        
+        .secure-text {
+            display: flex; align-items: center; justify-content: center; gap: 6px; 
+            font-size: 0.75rem; color: #888; margin-top: 12px; text-align: center;
+        }
+        .secure-text i { color: #4CAF50; }
+
+        /* BUTTON NAVIGASI BAWAH KIRI */
+        .bottom-links { display: flex; gap: 20px; margin-top: 20px; font-size: 0.8rem; }
+        .bottom-links a { color: #888; text-decoration: none; display: flex; align-items: center; gap: 5px; transition: 0.2s; }
+        .bottom-links a:hover { color: #fff; text-decoration: underline; }
+
+        .empty-message { text-align: center; padding: 70px 0; color: #888; width: 100%; grid-column: span 2; }
+        .empty-message a { color: #E50914; text-decoration: none; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -98,83 +153,46 @@ if ($cek_tabel && mysqli_num_rows($cek_tabel) > 0) {
         <ul class="nav-links">
             <li><a href="home.php">HOME</a></li>
             <li><a href="produk.php">PRODUK</a></li>
-            <li><a href="riwayat.php" class="active">RIWAYAT PEMESANAN</a></li>
-            <li><a href="cart.php"><i class="fa-solid fa-basket-shopping"></i></a></li>
+            <li><a href="riwayat.php">RIWAYAT PESANAN</a></li>
+            <li><a href="cart.php" class="active"><i class="fa-solid fa-basket-shopping" style="color:#E50914;"></i></a></li>
             <li class="user-menu"><i class="fa-regular fa-user"></i> Hi, <?= htmlspecialchars($nama_user); ?> <i class="fa-solid fa-caret-down"></i></li>
         </ul>
     </nav>
 
-    <!-- CONTENT BOX MELEBAR -->
+    <!-- CONTAINER UTAMA -->
     <main class="container">
-        <h2 class="page-title">Riwayat Pemesanan</h2>
-
-        <!-- TABS FILTER SSUAI GAMBAR FIGMA -->
-        <ul class="status-tabs">
-            <li class="tab-item active">Semua Pesanan</li>
-            <li class="tab-item">Menunggu</li>
-            <li class="tab-item">Dikemas</li>
-            <li class="tab-item">Dikirim</li>
-            <li class="tab-item">Selesai</li>
-            <li class="tab-item">Dibatalkan</li>
-        </ul>
-
-        <?php
-        // Tarik data riwayat transaksi asli dari DB milik user saat ini
-        if ($nama_tabel == 'transaksi') {
-            $q_orders = mysqli_query($conn, "SELECT * FROM transaksi WHERE id_user='$id_user' ORDER BY id_transaksi DESC");
-        } else {
-            $q_orders = mysqli_query($conn, "SELECT * FROM pesanan WHERE id_user='$id_user' ORDER BY id_pesanan DESC");
-        }
-
-        if ($q_orders && mysqli_num_rows($q_orders) > 0):
-            while ($ord = mysqli_fetch_assoc($q_orders)):
-                $id_ord = $ord['id_transaksi'] ?? $ord['id_pesanan'];
-                $tgl = $ord['tanggal_transaksi'] ?? ($ord['tanggal'] ?? '---');
-                $total = $ord['total_bayar'] ?? ($ord['total'] ?? 0);
-        ?>
-            <!-- KOTAK DATA DINAMIS DARI DATABASE -->
-            <div class="order-card-wide">
-                <div class="order-meta-info">
-                    <div class="order-id-label">Order ID <strong>#ORD-<?= $id_ord; ?></strong></div>
-                    <div class="meta-group">Tanggal Pemesanan <span><?= date('d M Y, H:i', strtotime($tgl)); ?></span></div>
-                    <div class="meta-group">Total Pemesanan <span style="color:#E50914; font-weight:600;">Rp <?= number_format($total, 0, ',', '.'); ?></span></div>
-                </div>
-                
-                <div class="order-products-snaps">
-                    <?php
-                    // Ambil item produk di dalam transaksi ini
-                    $q_det = mysqli_query($conn, "SELECT dt.*, p.nama_produk, p.foto, p.gambar_produk 
-                                                  FROM detail_transaksi dt 
-                                                  JOIN produk p ON dt.id_produk = p.id_produk 
-                                                  WHERE dt.id_transaksi = '$id_ord'");
-                    if(!$q_det) {
-                        $q_det = mysqli_query($conn, "SELECT dp.*, p.nama_produk, p.foto, p.gambar_produk 
-                                                      FROM detail_pesanan dp 
-                                                      JOIN produk p ON dp.id_produk = p.id_produk 
-                                                      WHERE dp.id_pesanan = '$id_ord'");
-                    }
+        
+        <div class="cart-wrapper">
+            
+            <!-- KOLOM KIRI: DAFTAR KERANJANG BELANJA -->
+            <div>
+                <h2 class="column-title">Keranjang Belanja</h2>
+                <div class="cart-section">
+                    <?php 
+                    $grand_total = 0;
+                    $total_item = 0;
                     
-                    while ($det = mysqli_fetch_assoc($q_det)):
-                        $img = !empty($det['foto']) ? $det['foto'] : ($det['gambar_produk'] ?? '');
+                    if (!empty($_SESSION['cart'])):
+                        foreach ($_SESSION['cart'] as $id_produk => $jumlah): 
+                            $q_prod = "SELECT * FROM produk WHERE id_produk='$id_produk'";
+                            $res_prod = mysqli_query($conn, $q_prod);
+                            $prod = mysqli_fetch_assoc($res_prod);
+                            
+                            if ($prod) {
+                                $subtotal = $prod['harga'] * $jumlah;
+                                $grand_total += $subtotal;
+                                $total_item += $jumlah;
+                            } else { continue; }
                     ?>
-                        <div class="snap-item">
-                            <div class="snap-img-box">
-                                <img src="../assets/img/produk/<?= $img; ?>" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                <i class="fa-solid fa-shirt" style="display:none;"></i>
-                            </div>
-                            <div class="snap-name"><?= htmlspecialchars($det['nama_produk']); ?></div>
-                            <div class="snap-qty">x<?= $det['jumlah'] ?? ($det['qty'] ?? 1); ?></div>
-                        </div>
-                    <?php endwhile; ?>
-                </div>
-            </div>
-        <?php 
-            endwhile;
-        else: 
-            // TAMPILAN CADANGAN MOCKUP PERSIS SEPERTI DI GAMBAR JIKA DATA DB KOSONG
-        ?>
-            <!-- KOTAK VISUAL MOCKUP FIGMA -->
-            <div class="order-card-wide">
-                <div class="order-meta-info">
-                    <div class="order-id-label">Order ID <strong>#ORD-0001</strong></div>
-                    <div class="meta-group">Tanggal Pemesanan <span>24 Mei 2026, 14:30</span></div>
+                    <!-- ITEM BARANG CARD -->
+                    <div class="cart-item">
+                        <img src="../assets/img/produk/<?= $prod['foto'] ?? ($prod['gambar_produk'] ?? 'default.png'); ?>" class="item-img" alt="">
+                        
+                        <div class="item-details">
+                            <div class="item-name"><?= htmlspecialchars($prod['nama_produk']); ?></div>
+                            <div class="item-size">Ukuran: M</div>
+                            
+                            <!-- Kontrol Jumlah Kuantitas Plus Minus Otomatis -->
+                            <div class="qty-action-container">
+                                <form action="update_cart.php" method="POST" id="form-<?= $id_produk; ?>">
+                                    <input type="hidden" name="id_produk" value="<?= $id_produk; ?>">
